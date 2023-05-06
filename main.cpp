@@ -1,6 +1,7 @@
 #include <iostream>
 #include <chrono>
 #include <random>
+#include "matrix_math.h"
 
 typedef std::chrono::high_resolution_clock Time;
 typedef std::chrono::duration<float> FSec;
@@ -22,86 +23,84 @@ void fillUpperTriangle(double **mat, int n) {
   }
 }
 
-double scalarProduct(const double *a, const double *b, int n) {
-  double product = 0;
+void matToConsole(double **mat, int n, int m) {
   for (int i = 0; i < n; ++i) {
-    product += a[i] * b[i];
-  }
-  return product;
-}
-
-double *scalarProduct(const double *a, const double b, int n) {
-  auto *result = new double[n];
-  for (int i = 0; i < n; ++i) {
-    result[i] = a[i] * b;
-  }
-  return result;
-}
-
-void subtractFromVector(double *a, const double *b, int n) {
-  for (int i = 0; i < n; ++i) {
-    a[i] -= b[i];
-  }
-}
-
-double euclideanNorm(const double *a, int n) {
-  return sqrt(scalarProduct(a, a, n));
-}
-
-void checkIfOrthogonal(double **mat, int n) {
-  for (int i = 0; i < n; ++i) {
-    for (int j = 0; j < i; ++j) {
-      std::cout << scalarProduct(mat[i], mat[j], n) << " ";
-    }
-    std::cout << euclideanNorm(mat[i], n) << "\n";
-  }
-}
-
-void matToConsole(double **mat, int n) {
-  for (int i = 0; i < n; ++i) {
-    for (int j = 0; j < n; ++j) {
-      std::cout << mat[i][j] << " ";
+    for (int j = 0; j < m; ++j) {
+      if (abs(mat[i][j]) < 10e-7) {
+        std::cout << "0 ";
+      } else {
+        std::cout << mat[i][j] << " ";
+      }
     }
     std::cout << "\n";
   }
 }
 
-void generateOrthogonalMatrix(double **mat, int n) {
+double **generateOrthogonalMatrix(int n) {
   std::default_random_engine engine(0);
   std::uniform_real_distribution<float> distribution(-1.0, 1.0);
-  for (int i = 0; i < n; i += 1) {
-    mat[i] = new double[n];
-    for (int j = 0; j < n; j += 1) {
-      mat[i][j] = distribution(engine);
+  auto mat = new double *[2]{new double[n], new double[n]};
+  #pragma omp parallel for
+  for (int i = 0; i < n; ++i) {
+    mat[0][i] = distribution(engine) - distribution(engine);
+  }
+  auto norm = euclideanNorm(mat[0], n);
+  #pragma omp parallel for
+  for (int i = 0; i < n; ++i) {
+    mat[0][i] /= norm;
+  }
+  mat = dotProduct(transpose(mat, 1, n), mat, n, 1, n);
+  matrixMultiply(mat, 2, n, n);
+  invert(mat, n, n);
+  for (int i = 0; i < n; ++i) {
+    mat[i][i] += 1;
+  }
+  return mat;
+}
+
+void checkIfOrthogonal(double **mat, int n) {
+  matToConsole(dotProduct(mat, transpose(mat, n, n), n, n, n), n, n);
+}
+
+double** multiply(double **Q, double **U, int n) {
+  auto** res = new double*[n];
+  #pragma omp parallel for shared(res)
+  for (int i = 0; i < n; ++i) {
+    res[i] = new double[n];
+    for (int j = 0; j < n; ++j) {
+      res[i][j] = 0;
+      for (int k = 0; k < n; ++k) {
+        for (int l = k; l < n; ++l) {
+          res[i][j] += Q[i][k] * Q[l][j];
+        }
+      }
     }
   }
-  for (int k = 0; k < n; k += 1) {
-    auto *r = new double[n];
-    for (int i = 0; i < k; i += 1) {
-      r[i] = scalarProduct(mat[k], mat[i], n);
-      subtractFromVector(mat[k], scalarProduct(mat[i], r[i], n), n);
-    }
-    r[k] = euclideanNorm(mat[k], n);
-    if (r[k] < 10e-7) {
-      throw std::exception("v_i are dependent, exiting");
-    }
-    mat[k] = scalarProduct(mat[k], 1 / r[k], n);
-  }
+  return res;
 }
 
 int main() {
-  int n = 3;
+  int n = 500;
+
+  auto ts = Time::now();
 
   auto **U = new double *[n];
   fillUpperTriangle(U, n);
 
-  auto **Q = new double *[n];
-  generateOrthogonalMatrix(Q, n);
+  auto **Q = generateOrthogonalMatrix(n);
 
-  //matToConsole(U, n);
-  matToConsole(Q, n);
+  //matToConsole(U, n, n);
+  //matToConsole(Q, n, n);
 
-  checkIfOrthogonal(Q, n);
+  //checkIfOrthogonal(Q, n);
+
+  auto ** A = multiply(Q, U, n);
+
+  auto te = Time::now();
+  FSec dur = te - ts;
+  std::cout << dur.count() * 1000 << "\n\n";
+
+  //matToConsole(A, n, n);
 
   for (int i = 0; i < n; ++i) {
     delete[] U[i];
