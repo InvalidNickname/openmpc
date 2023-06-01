@@ -35,7 +35,7 @@ multiplyRows PROC frame
         mov ecx, eax; ecx = l
         imul ecx, edx; ecx = l*n
         add ecx, ebx; ecx = l*n+j
-        vmovsd xmm2, real8 ptr [rsi+rcx*8]; xmm2 = Q[i][j]
+        vmovsd xmm2, real8 ptr [rsi+rcx*8]; xmm2 = Q[l][j]
 
         mov ecx, r8d; rcx = k
         imul ecx, edx; rcx = k*n
@@ -45,24 +45,22 @@ multiplyRows PROC frame
         vmulsd xmm1, xmm2, xmm3; xmm1 = Q[l][j] * U[k][l]
         vaddsd xmm0, xmm0, xmm1; temp += xmm1
 
-        mov ecx, r9d; rcx = i
-        imul ecx, edx; rcx = i*n
-        add ecx, r8d; rcx = i*n+k
-        vmovsd xmm4, real8 ptr [rsi+rcx*8]; xmm4 = Q[i][k]
-
-        vmulsd xmm0, xmm0, xmm4; temp *= Q[i][k]
-
         inc eax; ++l
         cmp eax, edx; if (l<n)
     jl @B
 
-    vcvtsi2sd xmm0, xmm0, rcx
-    vmovsd xmm0, real8 ptr [rsi+rcx*8]
+    mov ecx, r9d; rcx = i
+    imul ecx, edx; rcx = i*n
+    add ecx, r8d; rcx = i*n+k
+    vmovsd xmm4, real8 ptr [rsi+rcx*8]; xmm4 = Q[i][k]
+
+    vmulsd xmm0, xmm0, xmm4; temp *= Q[i][k]
 
     pop rdi
     pop rsi
 
     ret
+
 multiplyRows ENDP
 
 END

@@ -6,40 +6,40 @@
 typedef std::chrono::high_resolution_clock Time;
 typedef std::chrono::duration<float> FSec;
 
-const int N = 5;
+const int N = 150;
 const bool CHECK_ORTHOGONAL = false;
-const bool PRINT_Q = true;
-const bool PRINT_B = true;
+const bool PRINT_Q = false;
+const bool PRINT_U = false;
+const bool PRINT_B = false;
 const bool CHECK_MULTIPLICATION = false;
 const bool USE_OMP = false;
-const bool USE_MASM = true;
+const bool USE_MASM = false;
 
 /// Заполнение верхне-треугольной матрицы случайными числами
 /// \param mat - матрица n*n для заполнения
 /// \param n - размеры матрицы
-void fillUpperTriangle(double **mat, int n) {
+void fillUpperTriangle(double *mat, int n) {
   std::default_random_engine engine(0);
   std::uniform_real_distribution<float> distribution(-1.0, 1.0);
   for (int i = 0; i < n; ++i) {
-    mat[i] = new double[n];
     for (int j = 0; j < i; j += 1) {
-      mat[i][j] = 0.;
+      mat[i * n + j] = 0.;
     }
     for (int j = i; j < n; j += 1) {
-      mat[i][j] = distribution(engine);
+      mat[i * n + j] = distribution(engine);
     }
   }
 }
 
 /// Вывод матрицы в консоль
 /// \param mat - матрица размерами n*m
-void matToConsole(double **mat, int n, int m) {
+void matToConsole(double *mat, int n, int m) {
   for (int i = 0; i < n; ++i) {
     for (int j = 0; j < m; ++j) {
-      if (abs(mat[i][j]) < 10e-7) {
+      if (abs(mat[i * m + j]) < 10e-7) {
         std::cout << "0 ";
       } else {
-        std::cout << mat[i][j] << " ";
+        std::cout << mat[i * m + j] << " ";
       }
     }
     std::cout << "\n";
@@ -49,28 +49,28 @@ void matToConsole(double **mat, int n, int m) {
 /// Генерация ортогональной симметрической матрицы
 /// \param n - размеры матрицы
 /// \return - ортогональная симметрическая матрица n*n
-double **generateOrthogonalMatrix(int n) {
+double *generateOrthogonalMatrix(int n) {
   std::default_random_engine engine(0);
   std::uniform_real_distribution<float> distribution(-1.0, 1.0);
-  auto mat = new double *[2]{new double[n], new double[n]};
+  auto mat = new double[2 * n];
   for (int i = 0; i < n; ++i) {
-    mat[0][i] = distribution(engine) - distribution(engine);
+    mat[i] = distribution(engine) - distribution(engine);
   }
-  auto norm = euclideanNorm(mat[0], n);
+  auto norm = euclideanNorm(mat, n);
   for (int i = 0; i < n; ++i) {
-    mat[0][i] /= norm;
+    mat[i] /= norm;
   }
   mat = dotProduct(transpose(mat, 1, n), mat, n, 1, n);
   matrixMultiply(mat, -2, n, n);
   for (int i = 0; i < n; ++i) {
-    mat[i][i] += 1;
+    mat[i * n + i] += 1;
   }
   return mat;
 }
 
 /// Проверка ортогональности матрицы, вывод в консоль A*A.T
 /// \param mat - матрица размера n*n
-void checkIfOrthogonal(double **mat, int n) {
+void checkIfOrthogonal(double *mat, int n) {
   matToConsole(dotProduct(mat, transpose(mat, n, n), n, n, n), n, n);
 }
 
@@ -80,26 +80,23 @@ extern "C" double multiplyRows(double *Q, double *U, int k, int i, int j, int n)
 /// \param Q - симметрическая ортотогональная матрица размера n*n
 /// \param U - верхне-треугольная матрица размера n*n
 /// \return - результат перемножения, матрица размера n*n
-double **multiply(double **Q, double **U, const int n, bool use_omp, bool use_masm) {
-  auto **res = new double *[n];
+double *multiply(double *Q, double *U, const int n, bool use_omp, bool use_masm) {
+  auto *res = new double[n * n];
   #pragma omp parallel for if(use_omp)
   for (int i = 0; i < n; ++i) {
-    res[i] = new double[n];
     for (int j = 0; j < n; ++j) {
-      res[i][j] = 0;
+      res[i * n + j] = 0;
       for (int k = 0; k < n; ++k) {
         double temp = 0;
         if (use_masm) {
-          temp = multiplyRows(&Q[0][0], &U[0][0], k, i, j, n);
-          std::cout << temp << " " << k << " " << i << " " << j << " " << n << "\n";
+          temp = multiplyRows(&Q[0], &U[0], k, i, j, n);
         } else {
           for (int l = k; l < n; ++l) {
-            temp += Q[l][j] * U[k][l];
+            temp += Q[l * n + j] * U[k * n + l];
           }
-          temp *= Q[i][k];
-          std::cout << temp << " " << k << " " << i << " " << j << " " << n << "\n";
+          temp *= Q[i * n + k];
         }
-        res[i][j] += temp;
+        res[i * n + j] += temp;
       }
     }
   }
@@ -110,21 +107,25 @@ double **multiply(double **Q, double **U, const int n, bool use_omp, bool use_ma
 /// \param Q - ортогональная симметрическая матрица размера n*n
 /// \param U - верхнетреугольная матрица размера n*n
 /// \param B - результат перемножения Q*U*Q.T, матрица размера n*n
-void checkIfTrue(double **Q, double **U, double **B, int n) {
-  auto **check = dotProduct(Q, B, n, n, n);
+void checkIfTrue(double *Q, double *U, double *B, int n) {
+  auto *check = dotProduct(Q, B, n, n, n);
   check = dotProduct(check, Q, n, n, n);
   matToConsole(check, n, n);
   matToConsole(U, n, n);
 }
 
 int main() {
-  auto **U = new double *[N];
+  auto *U = new double[N * N];
   fillUpperTriangle(U, N);
 
-  auto **Q = generateOrthogonalMatrix(N);
+  auto *Q = generateOrthogonalMatrix(N);
 
   if (PRINT_Q) {
     matToConsole(Q, N, N);
+  }
+
+  if (PRINT_U) {
+    matToConsole(U, N, N);
   }
 
   if (CHECK_ORTHOGONAL) {
@@ -133,7 +134,7 @@ int main() {
 
   auto ts = Time::now();
 
-  auto **A = multiply(Q, U, N, USE_OMP, USE_MASM);
+  auto *A = multiply(Q, U, N, USE_OMP, USE_MASM);
 
   auto te = Time::now();
   FSec dur = te - ts;
@@ -147,11 +148,6 @@ int main() {
     checkIfTrue(Q, U, A, N);
   }
 
-  for (int i = 0; i < N; ++i) {
-    delete[] U[i];
-    delete[] Q[i];
-    delete[] A[i];
-  }
   delete[] U;
   delete[] Q;
   delete[] A;
