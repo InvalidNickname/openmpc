@@ -3,6 +3,7 @@ project(openmpc)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O0")
+enable_language(ASM_MASM)
 
 find_package(OpenMP)
 if (OPENMP_FOUND)
@@ -11,4 +12,4 @@ if (OPENMP_FOUND)
     set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${OpenMP_EXE_LINKER_FLAGS}")
 endif()
 
-add_executable(openmpc main.cpp matrix_math.h)
+add_executable(openmpc main.cpp matrix_math.h multiply_rows.asm)
