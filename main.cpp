@@ -6,13 +6,13 @@
 typedef std::chrono::high_resolution_clock Time;
 typedef std::chrono::duration<float> FSec;
 
-const int N = 150;
+const int N = 800;
 const bool CHECK_ORTHOGONAL = false;
 const bool PRINT_Q = false;
 const bool PRINT_U = false;
 const bool PRINT_B = false;
 const bool CHECK_MULTIPLICATION = false;
-const bool USE_OMP = false;
+const bool USE_OMP = true;
 const bool USE_MASM = false;
 
 /// Заполнение верхне-треугольной матрицы случайными числами
@@ -52,7 +52,7 @@ void matToConsole(double *mat, int n, int m) {
 double *generateOrthogonalMatrix(int n) {
   std::default_random_engine engine(0);
   std::uniform_real_distribution<float> distribution(-1.0, 1.0);
-  auto mat = new double[2 * n];
+  auto mat = new double[n];
   for (int i = 0; i < n; ++i) {
     mat[i] = distribution(engine) - distribution(engine);
   }
