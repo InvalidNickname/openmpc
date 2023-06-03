@@ -6,14 +6,14 @@
 typedef std::chrono::high_resolution_clock Time;
 typedef std::chrono::duration<float> FSec;
 
-const int N = 800;
+const int N = 500;
 const bool CHECK_ORTHOGONAL = false;
 const bool PRINT_Q = false;
 const bool PRINT_U = false;
 const bool PRINT_B = false;
 const bool CHECK_MULTIPLICATION = false;
-const bool USE_OMP = true;
-const bool USE_MASM = false;
+const bool USE_OMP = false;
+#define USE_MASM false
 
 /// Заполнение верхне-треугольной матрицы случайными числами
 /// \param mat - матрица n*n для заполнения
@@ -80,7 +80,7 @@ extern "C" double multiplyRows(double *Q, double *U, int k, int i, int j, int n)
 /// \param Q - симметрическая ортотогональная матрица размера n*n
 /// \param U - верхне-треугольная матрица размера n*n
 /// \return - результат перемножения, матрица размера n*n
-double *multiply(double *Q, double *U, const int n, bool use_omp, bool use_masm) {
+double *multiply(const double *Q, const double *U, const int n, bool use_omp, bool use_masm) {
   auto *res = new double[n * n];
   #pragma omp parallel for if(use_omp)
   for (int i = 0; i < n; ++i) {
@@ -88,14 +88,14 @@ double *multiply(double *Q, double *U, const int n, bool use_omp, bool use_masm)
       res[i * n + j] = 0;
       for (int k = 0; k < n; ++k) {
         double temp = 0;
-        if (use_masm) {
-          temp = multiplyRows(&Q[0], &U[0], k, i, j, n);
-        } else {
-          for (int l = k; l < n; ++l) {
-            temp += Q[l * n + j] * U[k * n + l];
-          }
-          temp *= Q[i * n + k];
+        #if USE_MASM == true
+        temp = multiplyRows(&Q[0], &U[0], k, i, j, n);
+        #else
+        for (int l = k; l < n; ++l) {
+          temp += Q[l * n + j] * U[k * n + l];
         }
+        temp *= Q[i * n + k];
+        #endif
         res[i * n + j] += temp;
       }
     }

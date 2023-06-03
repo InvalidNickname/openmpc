@@ -5,7 +5,7 @@
 /// \param a - матрица A размером n*m
 /// \param b - матрица B размером m*p
 /// \return матрица С размером n*p
-double *dotProduct(double *a, double *b, int n, int m, int p) {
+double *dotProduct(const double *a, const double *b, int n, int m, int p) {
   auto *result = new double [n*p];
   #pragma omp parallel for
   for (int i = 0; i < n; ++i) {
