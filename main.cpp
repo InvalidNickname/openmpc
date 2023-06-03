@@ -12,7 +12,7 @@ const bool PRINT_Q = false;
 const bool PRINT_U = false;
 const bool PRINT_B = false;
 const bool CHECK_MULTIPLICATION = false;
-const bool USE_OMP = false;
+const bool USE_OMP = true;
 #define USE_MASM false
 
 /// Заполнение верхне-треугольной матрицы случайными числами
@@ -74,7 +74,7 @@ void checkIfOrthogonal(double *mat, int n) {
   matToConsole(dotProduct(mat, transpose(mat, n, n), n, n, n), n, n);
 }
 
-extern "C" double multiplyRows(double *Q, double *U, int k, int i, int j, int n);
+extern "C" double multiplyRows(const double *Q, const double *U, int k, int i, int j, int n);
 
 /// Перемножение матриц Q*U*Q.T
 /// \param Q - симметрическая ортотогональная матрица размера n*n
